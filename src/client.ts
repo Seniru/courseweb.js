@@ -1,8 +1,10 @@
 import EventEmitter from "events";
-import { RegistrationNumber } from "./types/userMetadata.js";
-import puppeteer from "puppeteer";
 
-const SERVER_PREFIX = "https://courseweb.sliit.lk";
+import { RegistrationNumber } from "./types/userMetadata.js";
+import { SERVER_PREFIX } from "./constants/common.js";
+import { sessionStrategy } from "./auth/strategies/session.js";
+import { browserInteractionStrategy } from "./auth/strategies/browserInteraction.js";
+import { LoginStrategies, LoginStrategy } from "./types/loginStrategies.js";
 
 class Client extends EventEmitter {
   registrationNumber: RegistrationNumber;
@@ -16,32 +18,19 @@ class Client extends EventEmitter {
       registrationNumber.toLowerCase() as RegistrationNumber;
   }
 
-  login() {
-    return {
-      withSession: async (moodleSession: string, sessionKey: string) => {
+  login(): LoginStrategies {
+    const applyLoginStrategy = <T extends unknown[] = unknown[]>(strategy: LoginStrategy<T>) => {
+      return async (...args: T) => {
+        const { moodleSession, sessionKey } = await strategy(...args);
         this.moodleSession = moodleSession;
         this.sessionKey = sessionKey;
         this.emit("login");
-      },
+      };
+    };
 
-      withBrowserInteraction: async () => {
-        const browser = await puppeteer.launch({ headless: false });
-        const page = await browser.newPage();
-        await page.goto(SERVER_PREFIX);
-        await page.click(".login-identityprovider-btn");
-
-        await page.waitForFunction(
-          `window.location.href.startsWith('${SERVER_PREFIX}/my')`,
-          { timeout: 0 },
-        );
-        this.sessionKey =
-          (await page.content()).match(/"sesskey":"(\w+)"/)?.[1] || null;
-        this.moodleSession = (await browser.cookies()).filter(
-          (cookie) => cookie.name == "MoodleSession",
-        )[0].value;
-        await browser.close();
-        this.emit("login");
-      },
+    return {
+      withSession: applyLoginStrategy(sessionStrategy),
+      withBrowserInteraction: applyLoginStrategy(browserInteractionStrategy),
     };
   }
 
