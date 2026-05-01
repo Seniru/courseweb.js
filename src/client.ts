@@ -5,8 +5,10 @@ import { SERVER_PREFIX } from "./constants/common.js";
 import { sessionStrategy } from "./auth/strategies/session.js";
 import { browserInteractionStrategy } from "./auth/strategies/browserInteraction.js";
 import { LoginStrategies, LoginStrategy } from "./types/loginStrategies.js";
+import { CourseWebClientEvents } from "./types/events.js";
 
-class Client extends EventEmitter {
+
+class Client extends (EventEmitter as new () => CourseWebClientEvents) {
   registrationNumber: RegistrationNumber;
 
   private moodleSession: string | null = null;
