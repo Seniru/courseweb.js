@@ -4,9 +4,13 @@ import { RegistrationNumber } from "./types/userMetadata.js";
 import { SERVER_PREFIX } from "./constants/common.js";
 import { sessionStrategy } from "./auth/strategies/session.js";
 import { browserInteractionStrategy } from "./auth/strategies/browserInteraction.js";
-import { LoginStrategies, LoginStrategy } from "./types/loginStrategies.js";
+import {
+  LoginStrategies,
+  LoginStrategy,
+  VerificationOption,
+} from "./types/loginStrategies.js";
 import { CourseWebClientEvents } from "./types/events.js";
-
+import { browserAutomaticStrategy } from "./auth/strategies/browserAutomatic.js";
 
 class Client extends (EventEmitter as new () => CourseWebClientEvents) {
   registrationNumber: RegistrationNumber;
@@ -21,7 +25,9 @@ class Client extends (EventEmitter as new () => CourseWebClientEvents) {
   }
 
   login(): LoginStrategies {
-    const applyLoginStrategy = <T extends unknown[] = unknown[]>(strategy: LoginStrategy<T>) => {
+    const applyLoginStrategy = <T extends unknown[] = unknown[]>(
+      strategy: LoginStrategy<T>,
+    ) => {
       return async (...args: T) => {
         const { moodleSession, sessionKey } = await strategy(...args);
         this.moodleSession = moodleSession;
@@ -33,6 +39,14 @@ class Client extends (EventEmitter as new () => CourseWebClientEvents) {
     return {
       withSession: applyLoginStrategy(sessionStrategy),
       withBrowserInteraction: applyLoginStrategy(browserInteractionStrategy),
+      withBrowserAutomation: applyLoginStrategy(
+        (password: string, verificationOption: VerificationOption) =>
+          browserAutomaticStrategy(
+            this.registrationNumber,
+            password,
+            verificationOption,
+          ),
+      ),
     };
   }
 
